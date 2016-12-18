@@ -9,13 +9,20 @@ import (
 const urlRedirector = "https://fresh-argon-152122.appspot.com/redirect"
 
 func main() {
+	throttleChan := make(chan int, 10)
+
 	for {
-		go callRedirect()
-		time.Sleep(1000 * time.Millisecond)
+		throttleChan <- 1
+		go callRedirect(throttleChan)
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
-func callRedirect() {
+func callRedirect(throttleChan chan int) {
+	defer func() {
+		<- throttleChan
+	}()
+
 	c := http.DefaultClient
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
@@ -33,7 +40,7 @@ func callRedirect() {
 			fmt.Println(err)
 			return
 		}
-		fmt.Printf("Status code: %d, Redirect location: %s\n", resp.StatusCode, resp.Header.Get("Location"))
+		fmt.Printf("Status code: %d, Response from: %s Redirect location: %s\n", resp.StatusCode, urlString, resp.Header.Get("Location"))
 
 		if resp.StatusCode < 300 || resp.StatusCode >= 400 {
 			break
