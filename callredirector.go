@@ -4,17 +4,18 @@ import (
 	"net/http"
 	"fmt"
 	"time"
+	"math/rand"
 )
 
 const urlRedirector = "https://fresh-argon-152122.appspot.com/redirect"
 
 func main() {
-	throttleChan := make(chan int, 10)
+	throttleChan := make(chan int, 50)
 
 	for {
 		throttleChan <- 1
 		go callRedirect(throttleChan)
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(time.Duration(rand.Intn(50)) * time.Millisecond)
 	}
 }
 
@@ -40,7 +41,17 @@ func callRedirect(throttleChan chan int) {
 			fmt.Println(err)
 			return
 		}
-		fmt.Printf("Status code: %d, Response from: %s Redirect location: %s\n", resp.StatusCode, urlString, resp.Header.Get("Location"))
+		if r.Body != nil {
+			r.Body.Close()
+		}
+
+		if resp.StatusCode >= 400 {
+			fmt.Printf("Status code: %d, Response from: %s Redirect location: %s\n", resp.StatusCode, urlString, resp.Header.Get("Location"))
+		}
+
+		if resp.Body != nil {
+			resp.Body.Close()
+		}
 
 		if resp.StatusCode < 300 || resp.StatusCode >= 400 {
 			break
