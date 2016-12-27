@@ -1,13 +1,15 @@
 package main
 
 import (
-	"net/http"
+	"crypto/tls"
 	"fmt"
-	"time"
 	"math/rand"
+	"net/http"
+	"time"
 )
 
 const urlRedirector = "https://fresh-argon-152122.appspot.com/redirect"
+const printOnlyErrors = false
 
 func main() {
 	throttleChan := make(chan int, 50)
@@ -15,18 +17,21 @@ func main() {
 	for {
 		throttleChan <- 1
 		go callRedirect(throttleChan)
-		time.Sleep(time.Duration(rand.Intn(50)) * time.Millisecond)
+		time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 	}
 }
 
 func callRedirect(throttleChan chan int) {
 	defer func() {
-		<- throttleChan
+		<-throttleChan
 	}()
 
 	c := http.DefaultClient
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
+	}
+	c.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 
 	urlString := urlRedirector
@@ -45,7 +50,7 @@ func callRedirect(throttleChan chan int) {
 			r.Body.Close()
 		}
 
-		if resp.StatusCode >= 400 {
+		if !printOnlyErrors || resp.StatusCode >= 400 {
 			fmt.Printf("Status code: %d, Response from: %s Redirect location: %s\n", resp.StatusCode, urlString, resp.Header.Get("Location"))
 		}
 
