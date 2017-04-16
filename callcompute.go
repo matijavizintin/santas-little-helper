@@ -10,14 +10,21 @@ import (
 )
 
 func main() {
+	throttleChan := make(chan int, 10)
+
 	for {
-		go execRead()
-		time.Sleep(100 * time.Millisecond)
+		throttleChan <- 1
+		go execCall(throttleChan)
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
-func execRead() {
-	resp, err := http.Get(sensitive.AppEngineUrl)
+func execCall(throttleChan chan int) {
+	defer func() {
+		<-throttleChan
+	}()
+
+	resp, err := http.Get(sensitive.LoadBalancerUrl)
 	if err != nil {
 		fmt.Println(err)
 		return
